@@ -1,6 +1,6 @@
 from rtmidi.midiutil import open_midiport
 import schedule
-import time, datetime
+import time, datetime, copy
 
 class Sender:
     """
@@ -11,6 +11,8 @@ class Sender:
         コンストラクタ
         """
         self.midi_out, self.port = open_midiport(None, "output", client_name = 'sender')
+        self.events = []
+        self.times = []
 
 
     def send_message(self, message):
@@ -23,7 +25,7 @@ class Sender:
             送りたいMIDIメッセージ
         """
         self.midi_out.send_message(message)
-        print('MIDI Out : {}, @{}'.format(message, datetime.datetime.now()))
+        self.times.append(datetime.datetime.now()) # append() : O(1)
 
 
     def send_events(self, events, interval):
@@ -37,14 +39,13 @@ class Sender:
         interval : float
             ループ間隔の値[sec]
         """
+        self.events = copy.copy(events)
+
         # 各MIDIメッセージの送信時刻(絶対時間)を計算する
         events.to_abs_time()
 
-        # MIDIシーケンスの送信開始時刻を取得
-        start_time = time.time()
-
         # interval[sec]間隔でMIDIメッセージ送信を実行するようスケジューラを設定
-        schedule.every(interval).seconds.do(self.send_events_in_time, events, start_time)
+        schedule.every(interval).seconds.do(self.send_events_in_time, events, time.time())
 
         # MIDIイベントをすべて送信するまでループ実行
         while events:
@@ -64,13 +65,20 @@ class Sender:
         start_time : float
             MIDIシーケンスの送信開始時刻
         """
-        # 経過時間を計算する
-        elapsed_time = time.time() - start_time
-
         # 送信時刻が経過時間以下のMIDIイベントをすべて送信する
-        events_in_time = events.pop_events_in_time(elapsed_time)
+        events_in_time = events.pop_events_in_time(time.time() - start_time)
         for event in events_in_time:
             self.send_message(event.message)
+
+
+    def show_send_events_and_times(self):
+        """
+        送信したMIDIイベントと送信時刻を表示する
+        """
+        for index in range(len(self.events)):
+            event = self.events[index]
+            time = self.times[index]
+            print('MIDI OUT : {} @ {}'.format(event, time))
 
 
     def close_midi_out(self):

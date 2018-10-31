@@ -28,8 +28,10 @@ def main():
         sys.exit(1)
 
     events = MidiEvents(path)
+
     sender = Sender()
     sender.send_events(events, interval)
+    sender.show_send_events_and_times()
 
 
 if __name__ == '__main__':
