@@ -1,6 +1,7 @@
 from rtmidi.midiutil import open_midiport
 import schedule
 import time, datetime, copy
+from Midi import MidiEvent
 
 class Sender:
     """
@@ -11,8 +12,8 @@ class Sender:
         コンストラクタ
         """
         self.midi_out, self.port = open_midiport(None, "output", client_name = 'sender')
-        self.events = []
-        self.times = []
+        self.events = [] # 送信したMIDIイベントの情報
+        self.index = 0 # 次に送るMIDIイベントのインデックス
 
 
     def send_message(self, message):
@@ -25,7 +26,7 @@ class Sender:
             送りたいMIDIメッセージ
         """
         self.midi_out.send_message(message)
-        self.times.append(datetime.datetime.now()) # append() : O(1)
+        self.events.append(MidiEvent(message, datetime.datetime.now())) # append() : O(1)
 
 
     def send_events(self, events, interval):
@@ -39,8 +40,6 @@ class Sender:
         interval : float
             ループ間隔の値[sec]
         """
-        self.events = copy.copy(events)
-
         # 各MIDIメッセージの送信時刻(絶対時間)を計算する
         events.to_abs_time()
 
@@ -48,7 +47,7 @@ class Sender:
         schedule.every(interval).seconds.do(self.send_events_in_time, events, time.time())
 
         # MIDIイベントをすべて送信するまでループ実行
-        while events:
+        while self.index != len(events):
             schedule.run_pending()
 
         self.close_midi_out()
@@ -65,20 +64,31 @@ class Sender:
         start_time : float
             MIDIシーケンスの送信開始時刻
         """
-        # 送信時刻が経過時間以下のMIDIイベントをすべて送信する
-        events_in_time = events.pop_events_in_time(time.time() - start_time)
+        # 経過時間を計算
+        elapsed_time = time.time() - start_time
+
+        # 送信時刻が経過時間以下のMIDIイベントを取得
+        events_in_time = []
+        for index in range(self.index, len(events)):
+            if events[index].time <= elapsed_time:
+                events_in_time.append(events[index]) # append() : O(1)
+            else:
+                break
+
+        # 取得したMIDIイベントを送信
         for event in events_in_time:
             self.send_message(event.message)
+
+        # 次に送るMIDIイベントのインデックスを更新
+        self.index += len(events_in_time)
 
 
     def show_send_events_and_times(self):
         """
         送信したMIDIイベントと送信時刻を表示する
         """
-        for index in range(len(self.events)):
-            event = self.events[index]
-            time = self.times[index]
-            print('MIDI OUT : {} @ {}'.format(event, time))
+        for event in self.events:
+            print('MIDI OUT : {} @ {}'.format(event.message, event.time))
 
 
     def close_midi_out(self):

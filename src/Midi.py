@@ -70,22 +70,6 @@ class MidiEvents(list):
             self[index].time -= self[index - 1].time
 
 
-    def pop_events_in_time(self, time):
-        """
-        送信時刻が指定時間以下のMIDIイベントを取得し, リストから削除する
-
-        Parameters
-        ----------
-        time : float
-            ターゲット時間
-        """
-        events_in_time = [event for event in self if event.time <= time]
-        # 取り出したイベントを元のリストから消す
-        for event in events_in_time:
-            self.remove(event)
-        return events_in_time
-
-
     def show(self):
         """
         全MIDIイベントを表示する

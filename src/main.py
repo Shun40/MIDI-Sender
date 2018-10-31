@@ -27,10 +27,14 @@ def main():
         print('{} does not exist.'.format(path))
         sys.exit(1)
 
+    # MIDIファイルからMIDIイベントを読み込む
     events = MidiEvents(path)
 
+    # MIDIイベントを送信
     sender = Sender()
     sender.send_events(events, interval)
+
+    # 送信したMIDIイベントと送信時刻を表示
     sender.show_send_events_and_times()
 
 
